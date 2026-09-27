@@ -1,3 +1,4 @@
+// Домашнее задание 1. Шесть виджетов. Выполнила: Тарасова Виктория Андреевна
 import 'package:flutter/material.dart';
 
 void main() {
