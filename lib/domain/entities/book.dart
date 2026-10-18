@@ -8,19 +8,38 @@ enum BookCategory {
 }
 
 class Book {
+  final String? id;
+  final String title;
+  final String subtitle;
+  final BookCategory category;
+  final String? description;
+
   const Book({
-    required this.id,
+    this.id,
     required this.title,
     required this.subtitle,
     required this.category,
     this.description,
   });
 
-  final int id;
-  final String title;
-  final String subtitle;
-  final BookCategory category;
-  final String? description;
+  factory Book.fromJson(Map<String, dynamic> json) {
+    return Book(
+      id: json['id']?.toString(),
+      title: json['title'] ?? 'Без названия',
+      subtitle: json['subtitle'] ?? '',
+      category: BookCategory.values.byName(json['category'] ?? 'novel'),
+      description: json['description'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'subtitle': subtitle,
+      'category': category.name,
+      'description': description ?? '',
+    };
+  }
 
   String get categoryLabel {
     switch (category) {
