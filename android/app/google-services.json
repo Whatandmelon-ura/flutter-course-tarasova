@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "370969607106",
+    "project_id": "catalog-tarasova",
+    "storage_bucket": "catalog-tarasova.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:370969607106:android:56a54f25903bac29e7745b",
+        "android_client_info": {
+          "package_name": "com.example.flutter_cource"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMxZDmRG2SzmYqFTnBMg3cC-cXfakKYLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

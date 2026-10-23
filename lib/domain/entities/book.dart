@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum BookCategory {
   novel,
   classic,
@@ -22,16 +24,19 @@ class Book {
     this.description,
   });
 
-  factory Book.fromJson(Map<String, dynamic> json) {
+  // Этот метод превращает документ из Firebase в нашу модель
+  factory Book.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
     return Book(
-      id: json['id']?.toString(),
-      title: json['title'] ?? 'Без названия',
-      subtitle: json['subtitle'] ?? '',
-      category: BookCategory.values.byName(json['category'] ?? 'novel'),
-      description: json['description'] ?? '',
+      id: doc.id,
+      title: data['title'] ?? 'Без названия',
+      subtitle: data['subtitle'] ?? '',
+      category: BookCategory.values.byName(data['category'] ?? 'novel'),
+      description: data['description'] ?? '',
     );
   }
 
+  // Этот метод превращает модель в Map для отправки в Firebase
   Map<String, dynamic> toJson() {
     return {
       'title': title,
@@ -43,21 +48,12 @@ class Book {
 
   String get categoryLabel {
     switch (category) {
-      case BookCategory.novel:
-        return 'Роман';
-      case BookCategory.classic:
-        return 'Классика';
-      case BookCategory.fantasy:
-        return 'Фэнтези';
-      case BookCategory.scifi:
-        return 'Фантастика';
-      case BookCategory.detective:
-        return 'Детектив';
-      case BookCategory.history:
-        return 'История';
+      case BookCategory.novel: return 'Роман';
+      case BookCategory.classic: return 'Классика';
+      case BookCategory.fantasy: return 'Фэнтези';
+      case BookCategory.scifi: return 'Фантастика';
+      case BookCategory.detective: return 'Детектив';
+      case BookCategory.history: return 'История';
     }
   }
-
-  @override
-  String toString() => 'Book($id, $title)';
 }

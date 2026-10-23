@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/book.dart';
 import '../widgets/book_card.dart';
 
@@ -12,55 +12,22 @@ class CatalogScreen extends StatefulWidget {
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  final String baseUrl = 'https://6ad4833648476c0785d90964.mockapi.io/books';
-  
-  List<Book> _books = [];
   final Set<String> _likedIds = {};
   bool _onlyFavorites = false;
-  
-  bool _isLoading = true;
-  String? _error;
   bool _showForm = false;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _subtitleController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadBooks();
-  }
+  // Ссылка на коллекцию в Firebase
+  final Stream<QuerySnapshot<Map<String, dynamic>>> _booksStream =
+    FirebaseFirestore.instance.collection('books').snapshots();
 
   @override
   void dispose() {
     _titleController.dispose();
     _subtitleController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadBooks() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    try {
-      final response = await http.get(Uri.parse(baseUrl));
-      if (response.statusCode != 200) {
-        throw Exception('Статус ${response.statusCode}');
-      }
-      final List<dynamic> decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      setState(() {
-        _books = decoded.map((e) => Book.fromJson(e)).toList();
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   Future<void> _addBook() async {
@@ -73,24 +40,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
           ? 'Без автора'
           : _subtitleController.text.trim(),
       category: BookCategory.novel,
-      description: 'Добавлено пользователем',
+      description: 'Добавлено из приложения',
     );
 
     try {
-      final response = await http.post(
-        Uri.parse(baseUrl),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode(newBook.toJson()),
-      );
-
-      if (response.statusCode != 201) {
-        throw Exception('Статус ${response.statusCode}');
-      }
-
-      final created = Book.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
-
+      // Отправляем в Firebase!
+      await FirebaseFirestore.instance.collection('books').add(newBook.toJson());
+      
       setState(() {
-        _books.insert(0, created);
         _showForm = false;
         _titleController.clear();
         _subtitleController.clear();
@@ -98,12 +55,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Книга добавлена на сервер!')),
+        const SnackBar(content: Text('Книга добавлена в Firebase!')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка отправки: $e')),
+        SnackBar(content: Text('Ошибка: $e')),
       );
     }
   }
@@ -137,7 +94,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 child: TextField(
                   controller: _titleController,
                   decoration: const InputDecoration(
-                    labelText: 'Название (обязательно)',
+                    labelText: 'Название',
                     border: OutlineInputBorder(),
                     filled: true,
                     fillColor: Colors.white,
@@ -149,7 +106,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 child: TextField(
                   controller: _subtitleController,
                   decoration: const InputDecoration(
-                    labelText: 'Автор/Год',
+                    labelText: 'Автор',
                     border: OutlineInputBorder(),
                     filled: true,
                     fillColor: Colors.white,
@@ -162,7 +119,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           ElevatedButton.icon(
             onPressed: _addBook,
             icon: const Icon(Icons.save),
-            label: const Text('Отправить на сервер'),
+            label: const Text('Отправить в Firebase'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 45),
             ),
@@ -174,25 +131,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleBooks = _onlyFavorites
-        ? _books.where((b) => _likedIds.contains(b.id)).toList()
-        : _books;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Каталог книг'),
+        title: const Text('Каталог'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
+          // Кнопка добавления формы
           IconButton(
             icon: Icon(_showForm ? Icons.close : Icons.add),
             onPressed: () => setState(() => _showForm = !_showForm),
           ),
           Center(
             child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text('В избр.: ${_likedIds.length}'),
+              padding: const EdgeInsets.only(right: 8),
+              child: Text('Избр.: ${_likedIds.length}'),
             ),
+          ),
+          // КНОПКА ВЫХОДА
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
           ),
         ],
       ),
@@ -214,36 +175,41 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('Ошибка: $_error'),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _loadBooks,
-                              child: const Text('Обновить'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : visibleBooks.isEmpty
-                        ? const Center(child: Text('Ничего не нашлось'))
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(12),
-                            itemCount: visibleBooks.length,
-                            itemBuilder: (context, index) {
-                              final book = visibleBooks[index];
-                              return BookCard(
-                                book: book,
-                                isLiked: _likedIds.contains(book.id),
-                                onLikeTap: () => _toggleLike(book.id),
-                              );
-                            },
-                          ),
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _booksStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Ошибка: ${snapshot.error}'));
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                final docs = snapshot.data!.docs;
+                final books = docs.map((doc) => Book.fromFirestore(doc)).toList();
+                
+                final visibleBooks = _onlyFavorites
+                    ? books.where((b) => _likedIds.contains(b.id)).toList()
+                    : books;
+
+                if (visibleBooks.isEmpty) {
+                  return const Center(child: Text('Ничего не нашлось. Добавьте книгу!'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: visibleBooks.length,
+                  itemBuilder: (context, index) {
+                    final book = visibleBooks[index];
+                    return BookCard(
+                      book: book,
+                      isLiked: _likedIds.contains(book.id),
+                      onLikeTap: () => _toggleLike(book.id),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
